@@ -54,54 +54,69 @@ def kelly(ap, fracao=0.25, teto=0.025):
     return banca
 
 
-def main():
-    xi = sys.argv[1]
+def resumo(xi):
+    """Todos os números do critério e da informação complementar, num dicionário."""
     df = carregar(xi)
-    print(f"R-hat máximo nos ajustes bayesianos: {df.by_rhat.max():.3f}; divergências: {int(df.by_div.max())} no pior ajuste")
-
-    # --- qualidade da previsão ---
     df["pin_c"], df["pin_e"], df["pin_f"] = dados.prob_sem_margem(df[["PSCH", "PSCD", "PSCA"]].to_numpy()).T
     df["avg_c"], df["avg_e"], df["avg_f"] = dados.prob_sem_margem(df[["AvgCH", "AvgCD", "AvgCA"]].to_numpy()).T
     o = np.stack([df.res == "H", df.res == "D", df.res == "A"], axis=1)
-    linhas = []
-    for nome, pre in [("MV", "mv"), ("Bayes", "by"), ("Pinnacle", "pin"), ("Média mercado", "avg")]:
+    for pre in ("mv", "by", "pin", "avg"):
         P = df[[f"{pre}_c", f"{pre}_e", f"{pre}_f"]].to_numpy()
         df[f"rps_{pre}"] = rps(P, df.res.to_numpy())
         df[f"ll_{pre}"] = -np.log(np.clip((P * o).sum(axis=1), 1e-12, None))
     teste = df[df.temporada.isin(TESTE) & df.PSCH.notna()]
-    print("\nRPS e log-loss médios, 2016-2024 (menor é melhor):")
-    for pre, nome in [("mv", "MV"), ("by", "Bayes"), ("pin", "Pinnacle sem margem"), ("avg", "Média do mercado")]:
-        print(f"  {nome:<22} RPS {teste[f'rps_{pre}'].mean():.5f}   log-loss {teste[f'll_{pre}'].mean():.5f}")
-    print("\nRPS por temporada:")
-    print(teste.groupby("temporada")[["rps_mv", "rps_by", "rps_pin"]].mean().round(4).to_string())
 
-    # --- critério ---
     ap = apostas(teste, ["PSCH", "PSCD", "PSCA"])
     roi = ap.lucro.sum() / len(ap)
     lo, hi = ic_bootstrap(ap)
     por = ap.groupby("temporada").lucro.agg(n="size", roi="mean")
     pos = int((por.roi > 0).sum())
-    print(f"\nApostas 2016-2024 na Pinnacle de fechamento: {len(ap)} em {len(teste)} jogos")
-    print(f"ROI total {roi:+.2%}   IC 95% bootstrap por bloco de 7 dias [{lo:+.2%}, {hi:+.2%}]")
-    print(por.assign(roi=por.roi.map("{:+.1%}".format)).to_string())
-    print("\nApostas por resultado:", ap.aposta.value_counts().to_dict())
-    c1, c2 = lo > 0 and roi > 0, pos >= 6
-    print(f"\nCondição 1 (ROI > 0 e IC acima de zero): {'passa' if c1 else 'REPROVA'}")
-    print(f"Condição 2 (ROI > 0 em >= 6 de 9 temporadas: {pos}): {'passa' if c2 else 'REPROVA'}")
-    print(f"VEREDITO: {'APROVADO' if c1 and c2 else 'REPROVADO'}")
-    print(f"(fora do critério) banca final no Kelly 1/4 com teto 2,5%, partindo de 1: {kelly(ap):.3f}")
+    c1, c2 = bool(lo > 0 and roi > 0), pos >= 6
 
-    # --- informação, 2025-2026 ---
     info = df[df.temporada.isin([2025, 2026])].copy()
     for c in "HDA":
         info[f"BFL{c}"] = 1 + (info[f"BFEC{c}"] - 1) * (1 - COMISSAO_BF)
-    print("\nInformação, fora do critério (2025-2026):")
+    extra = {}
     for nome, cols in [("Betfair líquida", ["BFLH", "BFLD", "BFLA"]), ("bet365", ["B365CH", "B365CD", "B365CA"]),
                        ("Pinnacle", ["PSCH", "PSCD", "PSCA"])]:
         a = apostas(info, cols)
         if len(a):
-            print(f"  {nome:<16} {len(a):>4} apostas, ROI {a.lucro.mean():+.2%}")
-    print(f"  RPS 2025-2026: MV {info.rps_mv.mean():.4f}  Bayes {info.rps_by.mean():.4f}  média mercado {info.rps_avg.mean():.4f}")
+            extra[nome] = (len(a), a.lucro.mean())
+    return dict(
+        rhat_max=df.by_rhat.max(), div_max=int(df.by_div.max()),
+        qualidade={nome: (teste[f"rps_{pre}"].mean(), teste[f"ll_{pre}"].mean())
+                   for pre, nome in [("mv", "MV"), ("by", "Bayes"), ("pin", "Pinnacle sem margem"),
+                                     ("avg", "Média do mercado")]},
+        rps_temporada=teste.groupby("temporada")[["rps_mv", "rps_by", "rps_pin"]].mean(),
+        n_jogos=len(teste), n_apostas=len(ap), roi=roi, ic=(lo, hi), por_temporada=por,
+        temporadas_positivas=pos, por_resultado=ap.aposta.value_counts().to_dict(),
+        c1=c1, c2=c2, aprovado=c1 and c2, kelly=kelly(ap), extra_2025_26=extra,
+        rps_2025_26={"MV": info.rps_mv.mean(), "Bayes": info.rps_by.mean(), "Média do mercado": info.rps_avg.mean()},
+    )
+
+
+def main():
+    r = resumo(sys.argv[1])
+    print(f"R-hat máximo nos ajustes bayesianos: {r['rhat_max']:.3f}; divergências: {r['div_max']} no pior ajuste")
+    print("\nRPS e log-loss médios, 2016-2024 (menor é melhor):")
+    for nome, (q_rps, q_ll) in r["qualidade"].items():
+        print(f"  {nome:<22} RPS {q_rps:.5f}   log-loss {q_ll:.5f}")
+    print("\nRPS por temporada:")
+    print(r["rps_temporada"].round(4).to_string())
+    lo, hi = r["ic"]
+    por = r["por_temporada"]
+    print(f"\nApostas 2016-2024 na Pinnacle de fechamento: {r['n_apostas']} em {r['n_jogos']} jogos")
+    print(f"ROI total {r['roi']:+.2%}   IC 95% bootstrap por bloco de 7 dias [{lo:+.2%}, {hi:+.2%}]")
+    print(por.assign(roi=por.roi.map("{:+.1%}".format)).to_string())
+    print("\nApostas por resultado:", r["por_resultado"])
+    print(f"\nCondição 1 (ROI > 0 e IC acima de zero): {'passa' if r['c1'] else 'REPROVA'}")
+    print(f"Condição 2 (ROI > 0 em >= 6 de 9 temporadas: {r['temporadas_positivas']}): {'passa' if r['c2'] else 'REPROVA'}")
+    print(f"VEREDITO: {'APROVADO' if r['aprovado'] else 'REPROVADO'}")
+    print(f"(fora do critério) banca final no Kelly 1/4 com teto 2,5%, partindo de 1: {r['kelly']:.3f}")
+    print("\nInformação, fora do critério (2025-2026):")
+    for nome, (n, roi) in r["extra_2025_26"].items():
+        print(f"  {nome:<16} {n:>4} apostas, ROI {roi:+.2%}")
+    print("  RPS 2025-2026: " + "  ".join(f"{k} {v:.4f}" for k, v in r["rps_2025_26"].items()))
 
 
 if __name__ == "__main__":

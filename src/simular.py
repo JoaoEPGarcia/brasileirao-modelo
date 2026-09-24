@@ -75,6 +75,8 @@ def main():
         print(f"\n== {nome}: {N_SIM} simulações dos {len(restantes)} jogos restantes (dados até {jogados.data.max().date()}) ==")
         t = t.sort_values("pts_esperados", ascending=False)
         print(t.assign(**{c: t[c].map("{:.1%}".format) for c in ["campeao", "top4", "rebaixado"]}).to_string())
+    import relatorio
+    print("\nPDF:", relatorio.gerar(xi))
 
 
 if __name__ == "__main__":
