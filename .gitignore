@@ -1,0 +1,7 @@
+.venv/
+data/raw/
+resultados/cache/
+__pycache__/
+*.exe
+stan/*.hpp
+stan/dc
