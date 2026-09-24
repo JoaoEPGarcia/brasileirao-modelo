@@ -5,3 +5,4 @@ __pycache__/
 *.exe
 stan/*.hpp
 stan/dc
+stan/dc.exe
