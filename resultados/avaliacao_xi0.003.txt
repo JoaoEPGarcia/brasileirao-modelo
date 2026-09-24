@@ -1,0 +1,47 @@
+R-hat máximo nos ajustes bayesianos: 1.031; divergências: 1 no pior ajuste
+
+RPS e log-loss médios, 2016-2024 (menor é melhor):
+  MV                     RPS 0.20896   log-loss 1.02597
+  Bayes                  RPS 0.21229   log-loss 1.03611
+  Pinnacle sem margem    RPS 0.20061   log-loss 0.99923
+  Média do mercado       RPS 0.20080   log-loss 0.99961
+
+RPS por temporada:
+           rps_mv  rps_by  rps_pin
+temporada                         
+2016       0.2048  0.2067   0.1955
+2017       0.2285  0.2260   0.2237
+2018       0.1886  0.1954   0.1765
+2019       0.1965  0.2016   0.1923
+2020       0.2132  0.2161   0.2071
+2021       0.2094  0.2131   0.2004
+2022       0.2100  0.2160   0.2032
+2023       0.2163  0.2183   0.2098
+2024       0.2133  0.2174   0.1969
+
+Apostas 2016-2024 na Pinnacle de fechamento: 883 em 3419 jogos
+ROI total -6.29%   IC 95% bootstrap por bloco de 7 dias [-16.42%, +4.13%]
+             n     roi
+temporada             
+2016       105  +23.9%
+2017        73   -2.3%
+2018        97  -31.3%
+2019       104  +17.2%
+2020       117  -17.8%
+2021       107  -10.5%
+2022       108   +0.1%
+2023        87   -5.8%
+2024        85  -34.6%
+
+Apostas por resultado: {'H': 360, 'A': 266, 'D': 257}
+
+Condição 1 (ROI > 0 e IC acima de zero): REPROVA
+Condição 2 (ROI > 0 em >= 6 de 9 temporadas: 3): REPROVA
+VEREDITO: REPROVADO
+(fora do critério) banca final no Kelly 1/4 com teto 2,5%, partindo de 1: 0.421
+
+Informação, fora do critério (2025-2026):
+  Betfair líquida   135 apostas, ROI +13.79%
+  bet365            104 apostas, ROI +6.37%
+  Pinnacle           68 apostas, ROI -6.75%
+  RPS 2025-2026: MV 0.2045  Bayes 0.2100  média mercado 0.1990
